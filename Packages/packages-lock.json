@@ -121,11 +121,11 @@
       }
     },
     "com.unity.netcode": {
-      "version": "1.11.0",
+      "version": "1.13.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.entities": "1.4.2",
+        "com.unity.entities": "1.4.4",
         "com.unity.transport": "2.5.3",
         "com.unity.modules.animation": "1.0.0"
       },

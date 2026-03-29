@@ -1,21 +1,31 @@
 using Unity.Entities;
 using Unity.NetCode;
+using Unity.Collections;
+using Unity.Burst;
 using UnityEngine;
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-partial struct ClientMessageReceiver : ISystem
+public partial struct ReceiveMessageClientSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<NetworkStreamInGame>();
+    }
+
     public void OnUpdate(ref SystemState state)
     {
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
 
         foreach (var (rpc, entity) in SystemAPI
-                     .Query<RefRO<MessageRpc>>()
-                     .WithAll<ReceiveRpcCommandRequest>()
-                     .WithEntityAccess())
+            .Query<RefRO<MessageRpc>>()
+            .WithAll<ReceiveRpcCommandRequest>()
+            .WithEntityAccess())
         {
-            Debug.Log($"MSG from {rpc.ValueRO.sender}: {rpc.ValueRO.message}");
-            UIHandler.Instance.ShowMessage(rpc.ValueRO.sender, rpc.ValueRO.message);
+            Debug.Log($"[CHAT] {rpc.ValueRO.sender}: {rpc.ValueRO.message}");
+
+            if (UIHandler.Instance != null)
+                UIHandler.Instance.ShowMessage(rpc.ValueRO.sender, rpc.ValueRO.message);
+
             ecb.DestroyEntity(entity);
         }
 

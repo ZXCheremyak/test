@@ -1,80 +1,60 @@
-using Unity.Burst;
 using Unity.Entities;
 using Unity.NetCode;
+using Unity.Collections;
+using Unity.Burst;
 
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-partial struct ReceiveMessageSystem : ISystem
+[UpdateInGroup(typeof(SimulationSystemGroup))]
+[BurstCompile]
+public partial struct ReceiveMessageSystem : ISystem
 {
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        state.RequireForUpdate<EntitiesReferences>();
         state.RequireForUpdate<NetworkId>();
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
 
         foreach (var (rpc, entity) in SystemAPI
-                     .Query<RefRO<MessageRpc>>()
-                     .WithAll<ReceiveRpcCommandRequest>()
-                     .WithEntityAccess())
+            .Query<RefRO<MessageRpc>>()
+            .WithAll<ReceiveRpcCommandRequest>()
+            .WithEntityAccess())
         {
+            // broadcast всем (targetId == 0)
             if (rpc.ValueRO.targetId == 0)
             {
                 foreach (var (networkId, connEntity) in SystemAPI
-                             .Query<RefRO<NetworkId>>()
-                             .WithEntityAccess())
+                    .Query<RefRO<NetworkId>>()
+                    .WithEntityAccess())
                 {
-                    var rpcEntity = ecb.CreateEntity();
-
-                    var newRpc = new MessageRpc
-                    {
-                        message = rpc.ValueRO.message,
-                        sender = rpc.ValueRO.sender,
-                        targetId = 0
-                    };
-
-                    ecb.AddComponent(rpcEntity, newRpc);
-                    ecb.AddComponent(rpcEntity, new SendRpcCommandRequest
-                    {
-                        TargetConnection = connEntity
-                    });
+                    var newRpc = ecb.CreateEntity();
+                    ecb.AddComponent(newRpc, rpc.ValueRO);
+                    ecb.AddComponent(newRpc, new SendRpcCommandRequest { TargetConnection = connEntity });
                 }
             }
-            else
+            else // приватное сообщение
             {
-                Entity targetConnection = Entity.Null;
-
+                Entity targetConn = Entity.Null;
                 foreach (var (networkId, connEntity) in SystemAPI
-                             .Query<RefRO<NetworkId>>()
-                             .WithEntityAccess())
+                    .Query<RefRO<NetworkId>>()
+                    .WithEntityAccess())
                 {
                     if (networkId.ValueRO.Value == rpc.ValueRO.targetId)
                     {
-                        targetConnection = connEntity;
+                        targetConn = connEntity;
                         break;
                     }
                 }
 
-                if (targetConnection != Entity.Null)
+                if (targetConn != Entity.Null)
                 {
-                    var rpcEntity = ecb.CreateEntity();
-
-                    var newRpc = new MessageRpc
-                    {
-                        message = rpc.ValueRO.message,
-                        sender = rpc.ValueRO.sender,
-                        targetId = rpc.ValueRO.targetId
-                    };
-
-                    ecb.AddComponent(rpcEntity, newRpc);
-                    ecb.AddComponent(rpcEntity, new SendRpcCommandRequest
-                    {
-                        TargetConnection = targetConnection
-                    });
+                    var newRpc = ecb.CreateEntity();
+                    ecb.AddComponent(newRpc, rpc.ValueRO);
+                    ecb.AddComponent(newRpc, new SendRpcCommandRequest { TargetConnection = targetConn });
                 }
             }
 

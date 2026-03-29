@@ -1,22 +1,20 @@
 using Unity.Entities;
 using UnityEngine;
 
-public class EntititesReferencesAuthoring : MonoBehaviour
+public class EntitiesReferencesAuthoring : MonoBehaviour
 {
     public GameObject playerPrefabGameObject;
+}
 
-    public class Baker : Baker<EntititesReferencesAuthoring>
-
+public class EntitiesReferencesBaker : Baker<EntitiesReferencesAuthoring>
+{
+    public override void Bake(EntitiesReferencesAuthoring authoring)
     {
-        public override void Bake(EntititesReferencesAuthoring authoring)
+        Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+        AddComponent(entity, new EntitiesReferences
         {
-            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent(entity, new EntitiesReferences
-            {
-                playerPrefabEntity = GetEntity(authoring.playerPrefabGameObject, TransformUsageFlags.Dynamic),
-            });
-
-        }
+            playerPrefabEntity = GetEntity(authoring.playerPrefabGameObject, TransformUsageFlags.Dynamic),
+        });
     }
 }
 
@@ -24,4 +22,3 @@ public struct EntitiesReferences : IComponentData
 {
     public Entity playerPrefabEntity;
 }
-

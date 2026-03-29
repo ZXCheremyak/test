@@ -1,21 +1,22 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
+using Unity.Burst;
 
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-partial class SendMessageSystem : SystemBase
+public partial class SendMessageSystem : SystemBase
 {
-    int specifiedTarget;
-    FixedString128Bytes text;
-    bool hasPendingMessage;
+    private FixedString128Bytes text;
+    private int specifiedTarget;
+    private bool hasPendingMessage;
 
     protected override void OnCreate()
     {
-        UIHandler.sendMessage.AddListener(SetMsgValues);
-
+        base.OnCreate();
         RequireForUpdate<EntitiesReferences>();
-        RequireForUpdate<NetworkId>();
+        RequireForUpdate<NetworkStreamInGame>();
+        UIHandler.sendMessage.AddListener(SetMsgValues);
     }
 
     protected override void OnDestroy()
@@ -32,41 +33,34 @@ partial class SendMessageSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        if (!hasPendingMessage)
-            return;
-
+        if (!hasPendingMessage) return;
         hasPendingMessage = false;
 
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
         int localClientId = -1;
-
-        foreach (var ghostOwner in SystemAPI
-                     .Query<RefRO<GhostOwner>>()
-                     .WithAll<GhostOwnerIsLocal>())
+        foreach (var ghostOwner in SystemAPI.Query<RefRO<GhostOwner>>().WithAll<GhostOwnerIsLocal>())
         {
             localClientId = ghostOwner.ValueRO.NetworkId;
             break;
         }
 
-        var rpc = new MessageRpc
+        var rpcEntity = ecb.CreateEntity();
+        ecb.AddComponent(rpcEntity, new MessageRpc
         {
             message = text,
-            sender = localClientId.ToString(),
+            sender = new FixedString64Bytes(localClientId.ToString()),
             targetId = specifiedTarget
-        };
-
-        var rpcEntity = ecb.CreateEntity();
-
-        ecb.AddComponent(rpcEntity, rpc);
-        ecb.AddComponent(rpcEntity, new SendRpcCommandRequest());
+        });
+        ecb.AddComponent<SendRpcCommandRequest>(rpcEntity);
 
         ecb.Playback(EntityManager);
         ecb.Dispose();
     }
 }
 
-partial struct MessageRpc : IRpcCommand
+// RPC (оставляем здесь)
+public struct MessageRpc : IRpcCommand
 {
     public FixedString64Bytes sender;
     public int targetId;

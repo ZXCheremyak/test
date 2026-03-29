@@ -1,19 +1,16 @@
-using UnityEngine;
-using Unity.NetCode;
-using Unity.Mathematics;
-using UnityEngine.InputSystem;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.NetCode;
+using UnityEngine;
 
-public class PlayerInputAuthoring : MonoBehaviour
+public class PlayerInputAuthoring : MonoBehaviour { }
+
+public class PlayerInputBaker : Baker<PlayerInputAuthoring>
 {
-    public class Baker : Baker<PlayerInputAuthoring>
+    public override void Bake(PlayerInputAuthoring authoring)
     {
-        public override void Bake(PlayerInputAuthoring authoring)
-        {
-            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent(entity, new PlayerInput());
-        }
-
+        Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+        AddComponent(entity, new PlayerInput());
     }
 }
 
